@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(44, 154, 138, 0.14), transparent 30rem),
+    linear-gradient(180deg, #fbfaf7 0%, #eef3f5 52%, #f7f4ee 100%);
+  color: #18212f;
+}
+
+textarea,
+input,
+select,
+button {
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.focus-ring {
+  @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forge-500;
+}
+
+.metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
