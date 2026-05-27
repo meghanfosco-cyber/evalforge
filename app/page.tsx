@@ -297,10 +297,10 @@ function textJustification(input: EvaluationInput, winner: "A" | "B" | "Tie") {
       sharedRequirements.length > 0
         ? `Both responses address ${joinNatural(sharedRequirements)}.`
         : "Both responses cover some of the prompt but leave important evaluation questions unresolved.";
-    return `${sharedText} The comparison is close because neither response clearly provides more complete handling of "${firstUsefulSentence(
+    return `${sharedText} The comparison is close because neither response clearly provides a stronger answer to "${firstUsefulSentence(
       input.prompt,
       "the task prompt"
-    )}". A final reviewer should look for the answer that gives more concrete next steps, fewer assumptions, and better handling of the provided context notes.`;
+    )}". The tie would break toward the response with more specific prompt coverage, fewer assumptions, and a clearer action or takeaway.`;
   }
 
   const loser = winner === "A" ? "B" : "A";
@@ -335,8 +335,31 @@ function textJustification(input: EvaluationInput, winner: "A" | "B" | "Tie") {
 
 function generalJustification(input: EvaluationInput, presetLabel: string, winner: "A" | "B" | "Tie") {
   const promptDetail = firstUsefulSentence(input.prompt, "the task prompt");
+  if (presetLabel === "Image Generation Comparison") {
+    if (winner === "Tie") {
+      return `Both responses perform similarly because each keeps the subject connected to "${promptDetail}" and gives evaluators visual signals to compare. Response A has an edge when its composition, lighting, product clarity, texture, and reflections feel more realistic; Response B would only pull ahead if it showed cleaner background consistency or fewer visual artifacts. Since neither response clearly outperforms the other across realism, premium feel, prompt adherence, and artifact control, this is best treated as a close image comparison.`;
+    }
+
+    const loser = winner === "A" ? "B" : "A";
+    const winningResponse = winner === "A" ? input.responseA : input.responseB;
+    const losingResponse = loser === "A" ? input.responseA : input.responseB;
+    return `Response ${winner} is stronger for this image comparison because it gives a more convincing read on composition, lighting, product clarity, realism, and premium feel for "${promptDetail}". Its visual evidence includes "${firstUsefulSentence(
+      winningResponse,
+      `Response ${winner}`
+    )}". Response ${loser} is weaker where "${firstUsefulSentence(
+      losingResponse,
+      `Response ${loser}`
+    )}" suggests less consistent texture, background control, or artifact handling.`;
+  }
+
   if (winner === "Tie") {
-    return `Both responses are close under the ${presetLabel} preset. Each addresses parts of "${promptDetail}", but neither creates a decisive advantage across the category scores. A final review should compare the concrete details each response provides against the context notes and decide whether one answer better covers the expected constraints.`;
+    return `Both responses are close under the ${presetLabel} preset because neither one clearly separates itself on "${promptDetail}". Response A offers "${firstUsefulSentence(
+      input.responseA,
+      "Response A"
+    )}", while Response B offers "${firstUsefulSentence(
+      input.responseB,
+      "Response B"
+    )}". The tie holds because the strengths and weaknesses balance out across coverage, clarity, and prompt adherence.`;
   }
 
   const loser = winner === "A" ? "B" : "A";
