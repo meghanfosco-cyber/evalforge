@@ -548,6 +548,8 @@ export default function Home() {
   const [input, setInput] = useState<EvaluationInput>(emptyInput);
   const [result, setResult] = useState<EvaluationResult>(() => createEvaluation(emptyInput, "text"));
   const [hasUserEditedInput, setHasUserEditedInput] = useState(false);
+  const [hasEvaluationResult, setHasEvaluationResult] = useState(false);
+  const [validationMessage, setValidationMessage] = useState("");
 
   const selectedPreset = rubricPresets[rubric];
   const totalScore = useMemo(() => {
@@ -562,7 +564,14 @@ export default function Home() {
   }, [result]);
 
   function runEvaluation() {
+    if (!input.prompt.trim() || !input.responseA.trim() || !input.responseB.trim()) {
+      setHasEvaluationResult(false);
+      setValidationMessage("Add a task prompt plus Response A and Response B before running an evaluation.");
+      return;
+    }
+    setValidationMessage("");
     setResult(createEvaluation(input, rubric));
+    setHasEvaluationResult(true);
     setActiveTab("workspace");
   }
 
@@ -570,18 +579,25 @@ export default function Home() {
     if (!hasUserEditedInput) {
       setInput(emptyInput);
       setResult(createEvaluation(emptyInput, rubric));
+      setHasEvaluationResult(false);
+      setValidationMessage("");
     }
     setActiveTab("workspace");
   }
 
   function updateInput(patch: Partial<EvaluationInput>) {
+    const nextInput = { ...input, ...patch };
     setHasUserEditedInput(true);
-    setInput((current) => ({ ...current, ...patch }));
+    setInput(nextInput);
+    setHasEvaluationResult(false);
+    setValidationMessage("");
   }
 
   function selectRubric(rubricKey: RubricKey) {
     setRubric(rubricKey);
-    setResult(createEvaluation(input, rubricKey));
+    if (hasEvaluationResult) {
+      setResult(createEvaluation(input, rubricKey));
+    }
   }
 
   function loadDemoForRubric(rubricKey: RubricKey) {
@@ -594,6 +610,8 @@ export default function Home() {
       notes: demo.notes
     });
     setHasUserEditedInput(false);
+    setHasEvaluationResult(true);
+    setValidationMessage("");
     setResult(createEvaluation(demo, demo.rubric));
     setActiveTab("workspace");
   }
@@ -844,6 +862,8 @@ export default function Home() {
                     onClick={() => {
                       setInput(emptyInput);
                       setHasUserEditedInput(false);
+                      setHasEvaluationResult(false);
+                      setValidationMessage("");
                       setResult(createEvaluation(emptyInput, rubric));
                     }}
                     type="button"
@@ -851,85 +871,104 @@ export default function Home() {
                     Clear
                   </button>
                 </div>
+                {validationMessage && (
+                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                    {validationMessage}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="space-y-6">
-              <div className="rounded-xl border border-slate-200 bg-ink p-5 text-white shadow-soft">
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                  <div>
-                    <p className="text-sm font-bold text-forge-100">{selectedPreset.label}</p>
-                    <h3 className="mt-1 text-2xl font-black">Structured result</h3>
+              {!hasEvaluationResult ? (
+                <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-line">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-forge-50 text-forge-700">
+                    <ClipboardCheck className="h-6 w-6" aria-hidden />
                   </div>
-                  <div className="rounded-lg bg-white/10 px-4 py-3 text-right shadow-line">
-                    <div className="text-xs font-bold text-slate-200">Winner</div>
-                    <div className="text-3xl font-black">Response {result.winner}</div>
-                  </div>
+                  <h3 className="mt-4 text-lg font-black text-ink">No evaluation yet</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-graphite">
+                    Run an evaluation to see scores, issues, and justification here.
+                  </p>
                 </div>
-                <div className="mt-5 grid metric-grid gap-3">
-                  <div className="rounded-lg bg-white/10 p-4 shadow-line">
-                    <div className="text-xs font-bold text-slate-200">Score A</div>
-                    <div className="mt-1 text-3xl font-black">{totalScore.a}</div>
-                  </div>
-                  <div className="rounded-lg bg-white/10 p-4 shadow-line">
-                    <div className="text-xs font-bold text-slate-200">Score B</div>
-                    <div className="mt-1 text-3xl font-black">{totalScore.b}</div>
-                  </div>
-                  <div className="rounded-lg bg-white/10 p-4 shadow-line">
-                    <div className="text-xs font-bold text-slate-200">Confidence</div>
-                    <div className="mt-1 text-3xl font-black">{result.confidence}%</div>
-                  </div>
-                  <div className="rounded-lg bg-white/10 p-4 shadow-line">
-                    <div className="text-xs font-bold text-slate-200">Issue severity</div>
-                    <div className="mt-1 text-3xl font-black">{result.severity}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-line">
-                <div className="mb-4 flex items-center gap-2">
-                  <SplitSquareHorizontal className="h-5 w-5 text-cobalt-700" aria-hidden />
-                  <h3 className="text-lg font-black text-ink">Category scores</h3>
-                </div>
-                <div className="space-y-5">
-                  {result.categories.map((category) => (
-                    <div key={category.name} className="rounded-lg border border-slate-200 p-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <h4 className="text-sm font-black text-ink">{category.name}</h4>
-                        <p className="text-xs font-semibold text-graphite">{category.note}</p>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-slate-200 bg-ink p-5 text-white shadow-soft">
+                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                      <div>
+                        <p className="text-sm font-bold text-forge-100">{selectedPreset.label}</p>
+                        <h3 className="mt-1 text-2xl font-black">Structured result</h3>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <ScoreBar label={category.name} value={category.a} side="A" />
-                        <ScoreBar label={category.name} value={category.b} side="B" />
+                      <div className="rounded-lg bg-white/10 px-4 py-3 text-right shadow-line">
+                        <div className="text-xs font-bold text-slate-200">Winner</div>
+                        <div className="text-3xl font-black">Response {result.winner}</div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-line">
-                  <div className="mb-4 flex items-center gap-2">
-                    <ShieldAlert className="h-5 w-5 text-ember-600" aria-hidden />
-                    <h3 className="text-lg font-black text-ink">Issues</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {result.issues.map((issue) => (
-                      <div key={issue} className="flex gap-3 rounded-lg bg-slate-50 p-3">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-forge-600" aria-hidden />
-                        <p className="text-sm leading-6 text-graphite">{issue}</p>
+                    <div className="mt-5 grid metric-grid gap-3">
+                      <div className="rounded-lg bg-white/10 p-4 shadow-line">
+                        <div className="text-xs font-bold text-slate-200">Score A</div>
+                        <div className="mt-1 text-3xl font-black">{totalScore.a}</div>
                       </div>
-                    ))}
+                      <div className="rounded-lg bg-white/10 p-4 shadow-line">
+                        <div className="text-xs font-bold text-slate-200">Score B</div>
+                        <div className="mt-1 text-3xl font-black">{totalScore.b}</div>
+                      </div>
+                      <div className="rounded-lg bg-white/10 p-4 shadow-line">
+                        <div className="text-xs font-bold text-slate-200">Confidence</div>
+                        <div className="mt-1 text-3xl font-black">{result.confidence}%</div>
+                      </div>
+                      <div className="rounded-lg bg-white/10 p-4 shadow-line">
+                        <div className="text-xs font-bold text-slate-200">Issue severity</div>
+                        <div className="mt-1 text-3xl font-black">{result.severity}</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-line">
-                  <div className="mb-4 flex items-center gap-2">
-                    <ClipboardCheck className="h-5 w-5 text-forge-700" aria-hidden />
-                    <h3 className="text-lg font-black text-ink">Justification</h3>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-line">
+                    <div className="mb-4 flex items-center gap-2">
+                      <SplitSquareHorizontal className="h-5 w-5 text-cobalt-700" aria-hidden />
+                      <h3 className="text-lg font-black text-ink">Category scores</h3>
+                    </div>
+                    <div className="space-y-5">
+                      {result.categories.map((category) => (
+                        <div key={category.name} className="rounded-lg border border-slate-200 p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <h4 className="text-sm font-black text-ink">{category.name}</h4>
+                            <p className="text-xs font-semibold text-graphite">{category.note}</p>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <ScoreBar label={category.name} value={category.a} side="A" />
+                            <ScoreBar label={category.name} value={category.b} side="B" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <p className="text-sm leading-7 text-graphite">{result.justification}</p>
-                </div>
-              </div>
+
+                  <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-line">
+                      <div className="mb-4 flex items-center gap-2">
+                        <ShieldAlert className="h-5 w-5 text-ember-600" aria-hidden />
+                        <h3 className="text-lg font-black text-ink">Issues</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {result.issues.map((issue) => (
+                          <div key={issue} className="flex gap-3 rounded-lg bg-slate-50 p-3">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-forge-600" aria-hidden />
+                            <p className="text-sm leading-6 text-graphite">{issue}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-line">
+                      <div className="mb-4 flex items-center gap-2">
+                        <ClipboardCheck className="h-5 w-5 text-forge-700" aria-hidden />
+                        <h3 className="text-lg font-black text-ink">Justification</h3>
+                      </div>
+                      <p className="text-sm leading-7 text-graphite">{result.justification}</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
