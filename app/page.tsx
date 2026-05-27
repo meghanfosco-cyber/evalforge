@@ -370,19 +370,19 @@ function generalJustification(input: EvaluationInput, presetLabel: string, winne
 
   if (presetLabel === "UI Screenshot Description") {
     if (winner === "Tie") {
-      return `Both responses are close because each captures some visible UI structure from "${promptDetail}". Response A is stronger if its layout, navigation rail, filters, table structure, status badges, empty state, and interaction details are easier to verify from the screenshot; Response B would only pull ahead if it named more labels, hierarchy, and state changes. Since neither response clearly owns layout accuracy, element coverage, and visual evidence, this remains a close UI description comparison.`;
+      return `Both written descriptions are close because each captures some visible UI structure from "${promptDetail}". Response A is stronger if it describes the screenshot with clearer references to layout, navigation rail, filters, table structure, status badges, empty state, and interaction details; Response B would only pull ahead if its description named more labels, hierarchy, and state changes. Since neither written response is clearly more useful for a QA analyst across layout accuracy, element coverage, and visual evidence, this remains a close UI description comparison.`;
     }
 
     const loser = winner === "A" ? "B" : "A";
     const winningResponse = winner === "A" ? input.responseA : input.responseB;
     const losingResponse = loser === "A" ? input.responseA : input.responseB;
-    return `Response ${winner} is stronger for this UI screenshot description because it gives a clearer map of the screen hierarchy, labels, filters, navigation rail, table structure, status badges, empty state, and interaction details. It points to verifiable UI evidence such as "${firstUsefulSentence(
+    return `Response ${winner} is stronger for this UI Screenshot Description task because it provides a more useful written description of the screenshot. It captures visible UI elements such as hierarchy, labels, filters, navigation rail, table structure, status badges, empty state, and interaction details, with specifics like "${firstUsefulSentence(
       winningResponse,
       `Response ${winner}`
     )}". Response ${loser} is weaker because "${firstUsefulSentence(
       losingResponse,
       `Response ${loser}`
-    )}" stays too broad to confirm layout, state, or accessibility details from the screenshot.`;
+    )}" stays too broad to describe the screenshot's layout, state, accessibility details, or interaction cues for a QA analyst.`;
   }
 
   if (winner === "Tie") {
