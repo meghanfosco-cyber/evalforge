@@ -186,16 +186,47 @@ function agentEvidenceSentence(text: string, fallback: string) {
     "ticket",
     "shipment",
     "in transit",
-    "customer"
+    "customer",
+    "calendar",
+    "availability",
+    "available",
+    "conflict",
+    "double-book",
+    "open time",
+    "slot",
+    "30-minute",
+    "event",
+    "attendee",
+    "invite",
+    "confirm",
+    "meeting"
   ];
-  const vagueCues = ["performed well", "handled the workflow correctly", "mostly did fine", "did fine", "good", "bad"];
+  const vagueCues = [
+    "performed well",
+    "handled the workflow correctly",
+    "handled the scheduling task well",
+    "handled the task well",
+    "mostly did fine",
+    "did fine",
+    "scheduled the kickoff meeting",
+    "scheduled the meeting",
+    "told the user it was done",
+    "gave the customer a refund",
+    "good",
+    "bad"
+  ];
   const sentences = text
     .split(/(?<=[.!?])\s+/)
     .map((item) => item.trim())
     .filter((item) => item.length > 24);
-  const sentence =
-    sentences.find((item) => includesCue(item, agentCues) && !includesCue(item, vagueCues)) ??
-    sentences.find((item) => !includesCue(item, vagueCues));
+  const specificSentences = sentences
+    .filter((item) => !includesCue(item, vagueCues))
+    .map((item) => ({
+      text: item,
+      score: agentCues.reduce((sum, cue) => sum + (item.toLowerCase().includes(cue) ? 1 : 0), 0)
+    }))
+    .sort((a, b) => b.score - a.score || b.text.length - a.text.length);
+  const sentence = specificSentences.find((item) => item.score > 0)?.text ?? specificSentences[0]?.text;
   if (!sentence) {
     return fallback;
   }
@@ -222,6 +253,26 @@ function isSupportOrderWorkflow(input: EvaluationInput) {
     "refund",
     "refund policy",
     "ticket"
+  ]);
+}
+
+function isSchedulingWorkflow(input: EvaluationInput) {
+  return includesCue(`${input.prompt} ${input.responseA} ${input.responseB} ${input.notes}`, [
+    "scheduling",
+    "schedule",
+    "calendar",
+    "availability",
+    "available",
+    "conflict",
+    "double-book",
+    "open time",
+    "slot",
+    "30-minute",
+    "meeting",
+    "kickoff",
+    "attendee",
+    "invite",
+    "event"
   ]);
 }
 
@@ -475,6 +526,15 @@ function agentJustification(input: EvaluationInput, winner: "A" | "B" | "Tie") {
     return `Response ${winner} is stronger because it verifies the order details, checks the tracking history, applies the refund policy based on the delay window, avoids canceling a shipment that is still in transit, and updates the support ticket with a customer-facing note. Response ${loser} is weaker because it does not show enough tracking or policy verification, may mishandle an in-transit order, and does not clearly confirm that the support ticket was handled correctly.`;
   }
 
+  if (isSchedulingWorkflow(input)) {
+    if (winner === "Tie") {
+      return `Both responses are close because each addresses the scheduling workflow in "${promptDetail}". The stronger answer would be the one that more clearly checks calendar availability, avoids conflicts or double-booking, selects a specific open time, creates the correct calendar event, adds the right attendee, and confirms the meeting details.`;
+    }
+
+    const loser = winner === "A" ? "B" : "A";
+    return `Response ${winner} is stronger because it checked calendar availability, avoided existing conflicts, selected a specific open time slot, created the correct calendar event, added the right attendee, and confirmed the meeting details. Response ${loser} is weaker because it appears to assume availability, does not show enough conflict checking, and does not confirm the attendee or event details.`;
+  }
+
   if (winner === "Tie") {
     return `Both responses are close because they offer similar value for the agent workflow in "${promptDetail}". The tie would break toward the response that shows stronger documentation grounding, cleaner citation quality, clearer uncertainty handling, better ordered migration steps, and safer rollback guidance for a developer.`;
   }
@@ -501,6 +561,16 @@ function agentIssues(input: EvaluationInput, issueSubject: string, severity: Sev
       severity === "High"
         ? "The weaker agent review could lead to an incorrect refund, cancellation, or customer update."
         : "The weaker agent review is less reliable for confirming that the ecommerce support workflow was completed correctly."
+    ];
+  }
+
+  if (isSchedulingWorkflow(input)) {
+    return [
+      `${issueSubject} should more clearly check calendar availability, conflicts, and double-booking risk before scheduling.`,
+      `${issueSubject} needs stronger confirmation of the selected time slot, calendar event, attendee, and meeting details.`,
+      severity === "High"
+        ? "The weaker agent review could lead to an incorrect meeting time, missing attendee, or calendar conflict."
+        : "The weaker agent review is less reliable for confirming that the scheduling workflow was completed correctly."
     ];
   }
 
