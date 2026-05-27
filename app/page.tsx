@@ -83,18 +83,18 @@ const rubricPresets: Record<
 
 const demoEvaluations: Array<EvaluationInput & { title: string; rubric: RubricKey }> = [
   {
-    title: "Support QA: Billing Refund",
+    title: "Text QA: LinkedIn Launch Post",
     rubric: "text",
     prompt:
-      "A user asks why their annual subscription renewed after they cancelled last week. Provide a concise support reply with next steps.",
+      "Write a concise LinkedIn post announcing EvalForge, an AI evaluation and prompt QA studio. Use a professional but enthusiastic tone, explain structured rubrics, and include a clear call to action.",
     responseA:
-      "I am sorry for the surprise renewal. I can help check the cancellation timestamp, confirm whether the account was eligible for refund review, and share the next steps to contact billing securely.",
+      "Excited to share EvalForge, an AI evaluation and prompt QA studio for comparing model responses with structured rubrics, clear scoring, and evaluator-ready justifications. If your team is tightening AI quality workflows, take a look and tell me what you would measure first.",
     responseB:
-      "Your subscription probably renewed because you did not cancel correctly. Please read the policy page and try again later.",
-    notes: "Prefer empathetic language, no blame, and clear escalation to billing without making unsupported refund promises."
+      "I built a new AI tool. It checks responses and has some scoring features. More updates soon.",
+    notes: "Reward professional tone, specific explanation of the tool, clarity, conciseness, enthusiasm, and a useful call to action."
   },
   {
-    title: "Creative QA: Product Scene",
+    title: "Image QA: Product Scene",
     rubric: "image",
     prompt:
       "Compare two generated images for a premium reusable water bottle on a granite kitchen counter in morning light.",
@@ -103,6 +103,17 @@ const demoEvaluations: Array<EvaluationInput & { title: string; rubric: RubricKe
     responseB:
       "The bottle is visible, but the scene has plastic-looking metal, inconsistent shadows, and distracting extra objects behind the product.",
     notes: "Brand-safe, realistic materials, no distorted logos, and clear hero product visibility."
+  },
+  {
+    title: "UI QA: Dashboard Description",
+    rubric: "screenshot",
+    prompt:
+      "Compare two descriptions of a dashboard screenshot for a QA analyst. The best answer should mention navigation, filters, table state, empty/error states, and accessibility cues.",
+    responseA:
+      "The screenshot shows a dashboard with a left navigation rail, date and owner filters, a sortable issues table, status badges, and a visible empty-state panel. It also notes keyboard focus on the export button and labels the chart axes.",
+    responseB:
+      "It is a dashboard with charts, a table, and some buttons at the top.",
+    notes: "Reward precise UI element coverage, state recognition, accessibility detail, and concise wording."
   },
   {
     title: "Agent QA: Research Workflow",
@@ -116,6 +127,11 @@ const demoEvaluations: Array<EvaluationInput & { title: string; rubric: RubricKe
     notes: "Reward tool use only when it improves evidence quality and reduces migration risk."
   }
 ];
+
+const demoByRubric = Object.fromEntries(demoEvaluations.map((demo) => [demo.rubric, demo])) as Record<
+  RubricKey,
+  EvaluationInput & { title: string; rubric: RubricKey }
+>;
 
 const emptyInput: EvaluationInput = {
   prompt: "",
@@ -465,6 +481,11 @@ export default function Home() {
 
   function loadDemo(index: number) {
     const demo = demoEvaluations[index];
+    loadDemoForRubric(demo.rubric);
+  }
+
+  function loadDemoForRubric(rubricKey: RubricKey) {
+    const demo = demoByRubric[rubricKey];
     setRubric(demo.rubric);
     setInput({
       prompt: demo.prompt,
@@ -659,7 +680,7 @@ export default function Home() {
                       <button
                         key={key}
                         className={`focus-ring rounded-lg border p-4 text-left transition ${rubric === key ? "border-forge-500 bg-forge-50 shadow-line" : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"}`}
-                        onClick={() => setRubric(key)}
+                        onClick={() => loadDemoForRubric(key)}
                         type="button"
                       >
                         <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-white">
