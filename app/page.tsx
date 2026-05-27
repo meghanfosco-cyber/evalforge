@@ -162,6 +162,38 @@ function firstUsefulSentence(text: string, fallback: string) {
   return sentence.length > 150 ? `${sentence.slice(0, 147).trim()}...` : sentence;
 }
 
+function agentEvidenceSentence(text: string, fallback: string) {
+  const agentCues = [
+    "doc",
+    "documentation",
+    "cite",
+    "citation",
+    "migration",
+    "migrate",
+    "step",
+    "uncertainty",
+    "uncertain",
+    "rollback",
+    "version",
+    "compatibility",
+    "dependency",
+    "developer",
+    "api"
+  ];
+  const vagueCues = ["performed well", "mostly did fine", "did fine", "good", "bad"];
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 24);
+  const sentence =
+    sentences.find((item) => includesCue(item, agentCues) && !includesCue(item, vagueCues)) ??
+    sentences.find((item) => !includesCue(item, vagueCues));
+  if (!sentence) {
+    return fallback;
+  }
+  return sentence.length > 150 ? `${sentence.slice(0, 147).trim()}...` : sentence;
+}
+
 function includesCue(text: string, cues: string[]) {
   const lower = text.toLowerCase();
   return cues.some((cue) => lower.includes(cue));
@@ -393,10 +425,10 @@ function generalJustification(input: EvaluationInput, presetLabel: string, winne
     const loser = winner === "A" ? "B" : "A";
     const winningResponse = winner === "A" ? input.responseA : input.responseB;
     const losingResponse = loser === "A" ? input.responseA : input.responseB;
-    return `Response ${winner} is stronger for this Agent Tool-Use Review because it shows a more reliable and grounded workflow. It gives useful agent-run evidence such as "${firstUsefulSentence(
+    return `Response ${winner} is stronger for this Agent Tool-Use Review because it shows a more reliable and grounded workflow. It gives useful agent-run evidence such as "${agentEvidenceSentence(
       winningResponse,
       `Response ${winner}`
-    )}". Response ${loser} is weaker because "${firstUsefulSentence(
+    )}". Response ${loser} is weaker because "${agentEvidenceSentence(
       losingResponse,
       `Response ${loser}`
     )}" is harder to verify and less helpful for a developer relying on accurate migration steps, current documentation, uncertainty handling, and rollback notes.`;
