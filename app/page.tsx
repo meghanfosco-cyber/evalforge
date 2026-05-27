@@ -199,6 +199,62 @@ function includesCue(text: string, cues: string[]) {
   return cues.some((cue) => lower.includes(cue));
 }
 
+function rubricMismatchWarning(input: EvaluationInput, rubric: RubricKey) {
+  const content = `${input.prompt} ${input.responseA} ${input.responseB} ${input.notes}`.trim();
+  if (!content) {
+    return "";
+  }
+
+  const agentCues = ["agent", "tool", "tool-use", "documentation", "docs", "api", "migration", "citation", "cite", "rollback"];
+  const imageCues = [
+    "generated image",
+    "image",
+    "lighting",
+    "composition",
+    "realism",
+    "product photography",
+    "artifacts",
+    "visual quality"
+  ];
+  const screenshotCues = [
+    "ui",
+    "screenshot",
+    "dashboard",
+    "layout",
+    "navigation",
+    "filters",
+    "table",
+    "labels",
+    "screen"
+  ];
+  const looksAgent = includesCue(content, agentCues);
+  const looksImage = includesCue(content, imageCues);
+  const looksScreenshot = includesCue(content, screenshotCues);
+
+  if (rubric === "image" && looksAgent) {
+    return "Possible rubric mismatch: this looks like an agent/tool-use task, but Image Generation Comparison is selected. Consider switching to Agent Tool-Use Review for a more accurate evaluation.";
+  }
+  if (rubric === "agent" && looksImage) {
+    return "Possible rubric mismatch: this looks like an image generation comparison, but Agent Tool-Use Review is selected. Consider switching to Image Generation Comparison for a more accurate evaluation.";
+  }
+  if (rubric === "screenshot" && !looksScreenshot) {
+    return "Possible rubric mismatch: UI Screenshot Description works best when the task mentions UI, screenshots, dashboards, layout, navigation, filters, tables, labels, or visible screen elements.";
+  }
+  if (rubric === "text") {
+    if (looksAgent) {
+      return "Possible rubric mismatch: this looks like an agent/tool-use task. Consider switching to Agent Tool-Use Review for a more accurate evaluation.";
+    }
+    if (looksImage) {
+      return "Possible rubric mismatch: this looks like an image generation comparison. Consider switching to Image Generation Comparison for a more accurate evaluation.";
+    }
+    if (looksScreenshot) {
+      return "Possible rubric mismatch: this looks like a UI screenshot description task. Consider switching to UI Screenshot Description for a more accurate evaluation.";
+    }
+  }
+
+  return "";
+}
+
 function joinNatural(items: string[]) {
   if (items.length === 0) {
     return "";
@@ -552,6 +608,7 @@ export default function Home() {
   const [validationMessage, setValidationMessage] = useState("");
 
   const selectedPreset = rubricPresets[rubric];
+  const mismatchWarning = useMemo(() => rubricMismatchWarning(input, rubric), [input, rubric]);
   const totalScore = useMemo(() => {
     const totals = result.categories.reduce(
       (acc, item) => ({ a: acc.a + item.a, b: acc.b + item.b }),
@@ -881,6 +938,11 @@ export default function Home() {
                     Clear
                   </button>
                 </div>
+                {mismatchWarning && (
+                  <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold leading-6 text-amber-900">
+                    {mismatchWarning}
+                  </p>
+                )}
                 {validationMessage && (
                   <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
                     {validationMessage}
