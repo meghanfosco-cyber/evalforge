@@ -753,9 +753,19 @@ export default function Home() {
       <section id="workspace" className={activeTab === "workspace" ? "block" : "hidden"}>
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8">
           <div className="mb-6">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-forge-700">Evaluation workspace</p>
-              <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl">Compare, score, and justify</h2>
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-forge-700">Evaluation workspace</p>
+                <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl">Compare, score, and justify</h2>
+              </div>
+              <button
+                className="focus-ring inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-ink shadow-line transition hover:border-forge-500"
+                onClick={() => loadDemoForRubric("agent")}
+                type="button"
+              >
+                Load Agent Demo
+                <Boxes className="h-4 w-4" aria-hidden />
+              </button>
             </div>
           </div>
 
