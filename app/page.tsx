@@ -178,9 +178,17 @@ function agentEvidenceSentence(text: string, fallback: string) {
     "compatibility",
     "dependency",
     "developer",
-    "api"
+    "api",
+    "order",
+    "tracking",
+    "refund",
+    "policy",
+    "ticket",
+    "shipment",
+    "in transit",
+    "customer"
   ];
-  const vagueCues = ["performed well", "mostly did fine", "did fine", "good", "bad"];
+  const vagueCues = ["performed well", "handled the workflow correctly", "mostly did fine", "did fine", "good", "bad"];
   const sentences = text
     .split(/(?<=[.!?])\s+/)
     .map((item) => item.trim())
@@ -197,6 +205,24 @@ function agentEvidenceSentence(text: string, fallback: string) {
 function includesCue(text: string, cues: string[]) {
   const lower = text.toLowerCase();
   return cues.some((cue) => lower.includes(cue));
+}
+
+function isSupportOrderWorkflow(input: EvaluationInput) {
+  return includesCue(`${input.prompt} ${input.responseA} ${input.responseB} ${input.notes}`, [
+    "customer",
+    "support",
+    "ecommerce",
+    "e-commerce",
+    "order",
+    "delayed",
+    "late",
+    "tracking",
+    "shipment",
+    "in transit",
+    "refund",
+    "refund policy",
+    "ticket"
+  ]);
 }
 
 function rubricMismatchWarning(input: EvaluationInput, rubric: RubricKey) {
@@ -437,6 +463,56 @@ function textJustification(input: EvaluationInput, winner: "A" | "B" | "Tie") {
   )}", which does not fully satisfy the prompt requirements.`;
 }
 
+function agentJustification(input: EvaluationInput, winner: "A" | "B" | "Tie") {
+  const promptDetail = firstUsefulSentence(input.prompt, "the agent workflow");
+
+  if (isSupportOrderWorkflow(input)) {
+    if (winner === "Tie") {
+      return `Both responses are close because each addresses the support workflow in "${promptDetail}". The stronger answer would be the one that more clearly verifies order details, checks tracking history, applies the refund policy based on the delay window, avoids canceling an in-transit shipment, updates the support ticket, and gives the customer a clear resolution.`;
+    }
+
+    const loser = winner === "A" ? "B" : "A";
+    return `Response ${winner} is stronger because it verifies the order details, checks the tracking history, applies the refund policy based on the delay window, avoids canceling a shipment that is still in transit, and updates the support ticket with a customer-facing note. Response ${loser} is weaker because it does not show enough tracking or policy verification, may mishandle an in-transit order, and does not clearly confirm that the support ticket was handled correctly.`;
+  }
+
+  if (winner === "Tie") {
+    return `Both responses are close because they offer similar value for the agent workflow in "${promptDetail}". The tie would break toward the response that shows stronger documentation grounding, cleaner citation quality, clearer uncertainty handling, better ordered migration steps, and safer rollback guidance for a developer.`;
+  }
+
+  const loser = winner === "A" ? "B" : "A";
+  const winningResponse = winner === "A" ? input.responseA : input.responseB;
+  const losingResponse = loser === "A" ? input.responseA : input.responseB;
+  const winningEvidence = agentEvidenceSentence(winningResponse, "");
+  const losingEvidence = agentEvidenceSentence(losingResponse, "");
+  const winningDetail = winningEvidence
+    ? `It gives useful agent-run evidence such as "${winningEvidence}".`
+    : "It gives more concrete evidence about tool use, verification, citations, uncertainty handling, or workflow steps.";
+  const losingDetail = losingEvidence
+    ? `Response ${loser} is weaker because "${losingEvidence}" is harder to verify.`
+    : `Response ${loser} is weaker because it does not provide enough concrete evidence about tool use, verification, citations, uncertainty handling, or workflow steps.`;
+  return `Response ${winner} is stronger for this Agent Tool-Use Review because it shows a more reliable and grounded workflow. ${winningDetail} ${losingDetail} That makes Response ${winner} more trustworthy and useful for the agent workflow.`;
+}
+
+function agentIssues(input: EvaluationInput, issueSubject: string, severity: Severity) {
+  if (isSupportOrderWorkflow(input)) {
+    return [
+      `${issueSubject} should more clearly verify order status, tracking history, and the applicable refund policy before resolving the case.`,
+      `${issueSubject} needs safer handling of in-transit shipments, support-ticket updates, and customer-facing resolution notes.`,
+      severity === "High"
+        ? "The weaker agent review could lead to an incorrect refund, cancellation, or customer update."
+        : "The weaker agent review is less reliable for confirming that the ecommerce support workflow was completed correctly."
+    ];
+  }
+
+  return [
+    `${issueSubject} is less grounded in current tool output, documentation, or cited migration guidance.`,
+    `${issueSubject} should handle uncertainty, step ordering, model-name accuracy, and rollback notes more carefully.`,
+    severity === "High"
+      ? "The weaker agent review could mislead a developer following an API migration."
+      : "The weaker agent review is harder to verify and less useful for planning a safe migration."
+  ];
+}
+
 function generalJustification(input: EvaluationInput, presetLabel: string, winner: "A" | "B" | "Tie") {
   const promptDetail = firstUsefulSentence(input.prompt, "the task prompt");
   if (presetLabel === "Image Generation Comparison") {
@@ -474,20 +550,7 @@ function generalJustification(input: EvaluationInput, presetLabel: string, winne
   }
 
   if (presetLabel === "Agent Tool-Use Review") {
-    if (winner === "Tie") {
-      return `Both responses are close because they offer similar value for the agent workflow in "${promptDetail}". The tie would break toward the response that shows stronger documentation grounding, cleaner citation quality, clearer uncertainty handling, better ordered migration steps, and safer rollback guidance for a developer.`;
-    }
-
-    const loser = winner === "A" ? "B" : "A";
-    const winningResponse = winner === "A" ? input.responseA : input.responseB;
-    const losingResponse = loser === "A" ? input.responseA : input.responseB;
-    return `Response ${winner} is stronger for this Agent Tool-Use Review because it shows a more reliable and grounded workflow. It gives useful agent-run evidence such as "${agentEvidenceSentence(
-      winningResponse,
-      `Response ${winner}`
-    )}". Response ${loser} is weaker because "${agentEvidenceSentence(
-      losingResponse,
-      `Response ${loser}`
-    )}" is harder to verify and less helpful for a developer relying on accurate migration steps, current documentation, uncertainty handling, and rollback notes.`;
+    return agentJustification(input, winner);
   }
 
   if (winner === "Tie") {
@@ -561,13 +624,7 @@ function createEvaluation(input: EvaluationInput, rubric: RubricKey): Evaluation
       `${issueSubject} should describe layout, hierarchy, labels, filters, navigation rail, status badges, table structure, empty state, or interaction cues.`,
       `${issueSubject} would be harder for a QA analyst to verify because it lacks specific observable screen details.`
     ],
-    agent: [
-      `${issueSubject} is less grounded in current tool output, documentation, or cited migration guidance.`,
-      `${issueSubject} should handle uncertainty, step ordering, model-name accuracy, and rollback notes more carefully.`,
-      severity === "High"
-        ? "The weaker agent review could mislead a developer following an API migration."
-        : "The weaker agent review is harder to verify and less useful for planning a safe migration."
-    ]
+    agent: agentIssues(input, issueSubject, severity)
   }[rubric];
 
   return {
