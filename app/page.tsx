@@ -655,7 +655,7 @@ export default function Home() {
               </button>
               <button
                 className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-black text-ink shadow-line transition hover:border-forge-500"
-                onClick={() => loadDemo(2)}
+                onClick={() => loadDemoForRubric("agent")}
                 type="button"
               >
                 Load Agent Demo
