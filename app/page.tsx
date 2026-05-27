@@ -385,6 +385,23 @@ function generalJustification(input: EvaluationInput, presetLabel: string, winne
     )}" stays too broad to describe the screenshot's layout, state, accessibility details, or interaction cues for a QA analyst.`;
   }
 
+  if (presetLabel === "Agent Tool-Use Review") {
+    if (winner === "Tie") {
+      return `Both responses are close because they offer similar value for the agent workflow in "${promptDetail}". The tie would break toward the response that shows stronger documentation grounding, cleaner citation quality, clearer uncertainty handling, better ordered migration steps, and safer rollback guidance for a developer.`;
+    }
+
+    const loser = winner === "A" ? "B" : "A";
+    const winningResponse = winner === "A" ? input.responseA : input.responseB;
+    const losingResponse = loser === "A" ? input.responseA : input.responseB;
+    return `Response ${winner} is stronger for this Agent Tool-Use Review because it shows a more reliable and grounded workflow. It gives useful agent-run evidence such as "${firstUsefulSentence(
+      winningResponse,
+      `Response ${winner}`
+    )}". Response ${loser} is weaker because "${firstUsefulSentence(
+      losingResponse,
+      `Response ${loser}`
+    )}" is harder to verify and less helpful for a developer relying on accurate migration steps, current documentation, uncertainty handling, and rollback notes.`;
+  }
+
   if (winner === "Tie") {
     return `Both responses are close under the ${presetLabel} preset because neither one clearly separates itself on "${promptDetail}". Response A offers "${firstUsefulSentence(
       input.responseA,
@@ -404,7 +421,7 @@ function generalJustification(input: EvaluationInput, presetLabel: string, winne
   )}", while Response ${loser} is less complete with "${firstUsefulSentence(
     losingResponse,
     `Response ${loser}`
-  )}". That difference explains the category-score gap and gives evaluators a clearer basis for the winner selection.`;
+  )}". That makes Response ${winner} easier to trust for this comparison.`;
 }
 
 function createEvaluation(input: EvaluationInput, rubric: RubricKey): EvaluationResult {
@@ -436,22 +453,34 @@ function createEvaluation(input: EvaluationInput, rubric: RubricKey): Evaluation
   const issueSubject = winner === "Tie" ? "Both responses" : `Response ${weaker}`;
   const justification =
     rubric === "text" ? textJustification(input, winner) : generalJustification(input, preset.label, winner);
-  const issues =
-    rubric === "screenshot"
-      ? [
-          `${issueSubject} needs stronger coverage of visible UI layout, hierarchy, labels, and screen state.`,
-          `${issueSubject} should name concrete interface elements such as filters, navigation rail, status badges, table structure, empty state, or interaction cues.`,
-          severity === "High"
-            ? "The UI description gap is large enough to affect screenshot QA decisions."
-            : "The comparison is close, but the weaker answer still misses visual evidence that would make the screenshot easier to verify."
-        ]
-      : [
-          `${issueSubject} needs tighter alignment to the selected ${preset.label} rubric.`,
-          `${issueSubject} leaves room for more explicit evidence, constraints, or user-facing next steps.`,
-          severity === "High"
-            ? "The quality gap is large enough to affect production QA decisions."
-            : "The observed gap is manageable but should be captured for reviewer calibration."
-        ];
+  const issues = {
+    text: [
+      `${issueSubject} should more directly satisfy the writing goal, audience, tone, and requested format.`,
+      `${issueSubject} needs sharper wording around the main message, useful specifics, and the intended call to action.`,
+      severity === "High"
+        ? "The weaker response would need substantial rewriting before it works as polished content."
+        : "The weaker response is usable as a draft, but it is less clear, specific, or audience-ready."
+    ],
+    image: [
+      `${issueSubject} is less convincing on composition, lighting, product clarity, realism, or premium feel.`,
+      `${issueSubject} should better control texture, reflections, background consistency, and visible artifacts.`,
+      severity === "High"
+        ? "The visual quality difference is large enough to affect which generated image should be selected."
+        : "The image comparison is fairly close, but the weaker response has less reliable prompt adherence or artifact control."
+    ],
+    screenshot: [
+      `${issueSubject} is too broad for a UI Screenshot Description task.`,
+      `${issueSubject} should describe layout, hierarchy, labels, filters, navigation rail, status badges, table structure, empty state, or interaction cues.`,
+      `${issueSubject} would be harder for a QA analyst to verify because it lacks specific observable screen details.`
+    ],
+    agent: [
+      `${issueSubject} is less grounded in current tool output, documentation, or cited migration guidance.`,
+      `${issueSubject} should handle uncertainty, step ordering, model-name accuracy, and rollback notes more carefully.`,
+      severity === "High"
+        ? "The weaker agent review could mislead a developer following an API migration."
+        : "The weaker agent review is harder to verify and less useful for planning a safe migration."
+    ]
+  }[rubric];
 
   return {
     winner,
