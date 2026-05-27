@@ -368,6 +368,23 @@ function generalJustification(input: EvaluationInput, presetLabel: string, winne
     )}" suggests less consistent texture, background control, or artifact handling.`;
   }
 
+  if (presetLabel === "UI Screenshot Description") {
+    if (winner === "Tie") {
+      return `Both responses are close because each captures some visible UI structure from "${promptDetail}". Response A is stronger if its layout, navigation rail, filters, table structure, status badges, empty state, and interaction details are easier to verify from the screenshot; Response B would only pull ahead if it named more labels, hierarchy, and state changes. Since neither response clearly owns layout accuracy, element coverage, and visual evidence, this remains a close UI description comparison.`;
+    }
+
+    const loser = winner === "A" ? "B" : "A";
+    const winningResponse = winner === "A" ? input.responseA : input.responseB;
+    const losingResponse = loser === "A" ? input.responseA : input.responseB;
+    return `Response ${winner} is stronger for this UI screenshot description because it gives a clearer map of the screen hierarchy, labels, filters, navigation rail, table structure, status badges, empty state, and interaction details. It points to verifiable UI evidence such as "${firstUsefulSentence(
+      winningResponse,
+      `Response ${winner}`
+    )}". Response ${loser} is weaker because "${firstUsefulSentence(
+      losingResponse,
+      `Response ${loser}`
+    )}" stays too broad to confirm layout, state, or accessibility details from the screenshot.`;
+  }
+
   if (winner === "Tie") {
     return `Both responses are close under the ${presetLabel} preset because neither one clearly separates itself on "${promptDetail}". Response A offers "${firstUsefulSentence(
       input.responseA,
@@ -419,19 +436,29 @@ function createEvaluation(input: EvaluationInput, rubric: RubricKey): Evaluation
   const issueSubject = winner === "Tie" ? "Both responses" : `Response ${weaker}`;
   const justification =
     rubric === "text" ? textJustification(input, winner) : generalJustification(input, preset.label, winner);
+  const issues =
+    rubric === "screenshot"
+      ? [
+          `${issueSubject} needs stronger coverage of visible UI layout, hierarchy, labels, and screen state.`,
+          `${issueSubject} should name concrete interface elements such as filters, navigation rail, status badges, table structure, empty state, or interaction cues.`,
+          severity === "High"
+            ? "The UI description gap is large enough to affect screenshot QA decisions."
+            : "The comparison is close, but the weaker answer still misses visual evidence that would make the screenshot easier to verify."
+        ]
+      : [
+          `${issueSubject} needs tighter alignment to the selected ${preset.label} rubric.`,
+          `${issueSubject} leaves room for more explicit evidence, constraints, or user-facing next steps.`,
+          severity === "High"
+            ? "The quality gap is large enough to affect production QA decisions."
+            : "The observed gap is manageable but should be captured for reviewer calibration."
+        ];
 
   return {
     winner,
     confidence: Math.min(96, Math.round(68 + gap * 1.8)),
     severity,
     categories,
-    issues: [
-      `${issueSubject} needs tighter alignment to the selected ${preset.label} rubric.`,
-      `${issueSubject} leaves room for more explicit evidence, constraints, or user-facing next steps.`,
-      severity === "High"
-        ? "The quality gap is large enough to affect production QA decisions."
-        : "The observed gap is manageable but should be captured for reviewer calibration."
-    ],
+    issues,
     justification
   };
 }
