@@ -545,10 +545,9 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"overview" | "workspace">("overview");
   const [rubric, setRubric] = useState<RubricKey>("text");
   const [isRubricOpen, setIsRubricOpen] = useState(true);
-  const [input, setInput] = useState<EvaluationInput>(demoEvaluations[0]);
-  const [result, setResult] = useState<EvaluationResult>(() =>
-    createEvaluation(demoEvaluations[0], demoEvaluations[0].rubric)
-  );
+  const [input, setInput] = useState<EvaluationInput>(emptyInput);
+  const [result, setResult] = useState<EvaluationResult>(() => createEvaluation(emptyInput, "text"));
+  const [hasUserEditedInput, setHasUserEditedInput] = useState(false);
 
   const selectedPreset = rubricPresets[rubric];
   const totalScore = useMemo(() => {
@@ -567,9 +566,22 @@ export default function Home() {
     setActiveTab("workspace");
   }
 
-  function loadDemo(index: number) {
-    const demo = demoEvaluations[index];
-    loadDemoForRubric(demo.rubric);
+  function openWorkspace() {
+    if (!hasUserEditedInput) {
+      setInput(emptyInput);
+      setResult(createEvaluation(emptyInput, rubric));
+    }
+    setActiveTab("workspace");
+  }
+
+  function updateInput(patch: Partial<EvaluationInput>) {
+    setHasUserEditedInput(true);
+    setInput((current) => ({ ...current, ...patch }));
+  }
+
+  function selectRubric(rubricKey: RubricKey) {
+    setRubric(rubricKey);
+    setResult(createEvaluation(input, rubricKey));
   }
 
   function loadDemoForRubric(rubricKey: RubricKey) {
@@ -581,6 +593,7 @@ export default function Home() {
       responseB: demo.responseB,
       notes: demo.notes
     });
+    setHasUserEditedInput(false);
     setResult(createEvaluation(demo, demo.rubric));
     setActiveTab("workspace");
   }
@@ -609,7 +622,7 @@ export default function Home() {
                 className={`focus-ring rounded-md px-4 py-2 text-sm font-bold capitalize transition ${
                   activeTab === tab ? "bg-ink text-white" : "text-graphite hover:bg-slate-100 hover:text-ink"
                 }`}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => (tab === "workspace" ? openWorkspace() : setActiveTab(tab))}
                 type="button"
               >
                 {tab}
@@ -619,7 +632,7 @@ export default function Home() {
           <button
             className="focus-ring inline-flex items-center gap-2 rounded-lg bg-forge-600 px-4 py-2.5 text-sm font-black text-white shadow-line transition hover:bg-forge-700"
             onClick={() => {
-              setActiveTab("workspace");
+              openWorkspace();
               document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth" });
             }}
             type="button"
@@ -647,7 +660,7 @@ export default function Home() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5"
-                onClick={() => setActiveTab("workspace")}
+                onClick={openWorkspace}
                 type="button"
               >
                 Start Evaluating
@@ -721,22 +734,10 @@ export default function Home() {
 
       <section id="workspace" className={activeTab === "workspace" ? "block" : "hidden"}>
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-6 lg:px-8">
-          <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <div className="mb-6">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.18em] text-forge-700">Evaluation workspace</p>
               <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl">Compare, score, and justify</h2>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {demoEvaluations.map((demo, index) => (
-                <button
-                  key={demo.title}
-                  className="focus-ring rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-graphite shadow-line transition hover:border-forge-500 hover:text-ink"
-                  onClick={() => loadDemo(index)}
-                  type="button"
-                >
-                  {demo.title}
-                </button>
-              ))}
             </div>
           </div>
 
@@ -768,7 +769,7 @@ export default function Home() {
                       <button
                         key={key}
                         className={`focus-ring rounded-lg border p-4 text-left transition ${rubric === key ? "border-forge-500 bg-forge-50 shadow-line" : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"}`}
-                        onClick={() => loadDemoForRubric(key)}
+                        onClick={() => selectRubric(key)}
                         type="button"
                       >
                         <span className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-white">
@@ -795,7 +796,7 @@ export default function Home() {
                     <textarea
                       className="focus-ring min-h-28 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-6 text-ink shadow-line"
                       value={input.prompt}
-                      onChange={(event) => setInput({ ...input, prompt: event.target.value })}
+                      onChange={(event) => updateInput({ prompt: event.target.value })}
                       placeholder="Paste the task prompt being evaluated..."
                     />
                   </label>
@@ -805,7 +806,7 @@ export default function Home() {
                       <textarea
                         className="focus-ring min-h-40 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-6 text-ink shadow-line"
                         value={input.responseA}
-                        onChange={(event) => setInput({ ...input, responseA: event.target.value })}
+                        onChange={(event) => updateInput({ responseA: event.target.value })}
                         placeholder="Paste response A..."
                       />
                     </label>
@@ -814,7 +815,7 @@ export default function Home() {
                       <textarea
                         className="focus-ring min-h-40 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-6 text-ink shadow-line"
                         value={input.responseB}
-                        onChange={(event) => setInput({ ...input, responseB: event.target.value })}
+                        onChange={(event) => updateInput({ responseB: event.target.value })}
                         placeholder="Paste response B..."
                       />
                     </label>
@@ -824,7 +825,7 @@ export default function Home() {
                     <textarea
                       className="focus-ring min-h-24 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-6 text-ink shadow-line"
                       value={input.notes}
-                      onChange={(event) => setInput({ ...input, notes: event.target.value })}
+                      onChange={(event) => updateInput({ notes: event.target.value })}
                       placeholder="Add policy, product, evaluator, or dataset context..."
                     />
                   </label>
@@ -842,6 +843,7 @@ export default function Home() {
                     className="focus-ring inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-black text-graphite shadow-line transition hover:text-ink"
                     onClick={() => {
                       setInput(emptyInput);
+                      setHasUserEditedInput(false);
                       setResult(createEvaluation(emptyInput, rubric));
                     }}
                     type="button"
